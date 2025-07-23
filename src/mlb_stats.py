@@ -13,6 +13,8 @@ NATIONAL = "National"
 MEDIA_ON = "Media On"
 OUT_OF_MARKET = "Local (Out of Market)"
 
+IN_PROGESS = "In Progress"
+
 
 def get_games_on_date(date=None, days_ago=None):
     if not date:
@@ -21,8 +23,11 @@ def get_games_on_date(date=None, days_ago=None):
         if days_ago:
             date = (date - timedelta(days=days_ago))
 
-    if not type(date) == str:
+    if isinstance(date, datetime):
         date = date.strftime("%Y-%m-%d")
+
+    if date.isdigit() and len(date) == 10:
+        date = f"{date[:4]}-{date[5:7]}-{date[8:10]}"
 
     schedule_url_options = [
         "sportId=1",
@@ -47,17 +52,67 @@ def get_games_on_date(date=None, days_ago=None):
     except (KeyError, IndexError, AssertionError):
         raise Exception(f"No games found on {date}. Response: {r.text}")
 
-    return r.json()
+    return games
+
+def prompt_games(games=None):
+    home_len = 0
+    away_len = 0
+    prints = []
+    games = get_games_on_date() if not games else games # this line makes me laugh
+    for game in games:
+        
+        status = game["status"]["detailedState"]
+        if status == IN_PROGESS:
+            inning = game["linescore"]["currentInningOrdinal"]
+            half = game["linescore"]["inningHalf"][:3]
+            status = f"{inning} {half}"
+
+        time = u.pretty_print_time_in_timezone(game["gameDate"])
+
+        home = {}
+        home["team"] = game["teams"]["home"]["team"]["name"]
+        home["wins"] = game["teams"]["home"]["leagueRecord"]["wins"]
+        home["losses"] = game["teams"]["home"]["leagueRecord"]["losses"]
+        home_str = f"{home['team']} ({home['wins']}/{home['losses']}),"
+        home_len = max(home_len, len(home_str))
+
+        away = {}
+        away["team"] = game["teams"]["away"]["team"]["name"]
+        away["wins"] = game["teams"]["away"]["leagueRecord"]["wins"]
+        away["losses"] = game["teams"]["away"]["leagueRecord"]["losses"]
+        away_str = f"{away['team']} ({away['wins']}/{away['losses']})"
+        away_len = max(away_len, len(away_str))
+
+        prints.append({
+            "home": home_str,
+            "away": away_str,
+            "time": time,
+            "status": status
+        })
+
+    for p in prints:
+        home = p["home"]
+        away = p["away"]
+        time = p["time"]
+        status = p["status"]
+
+        # Print with padding
+        print(f"{away:<{away_len}} @ {home:<{home_len}} {time}, {status}")
+
+
+
+
+
 
 def get_team_game_from_games(games, team_name=DBACKS):
-    for game in games["dates"][0]["games"]:
+    for game in games:
         gamepk = game["gamePk"]
         home_team = game["teams"]["home"]["team"]["name"]
         away_team = game["teams"]["away"]["team"]["name"]
 
         if team_name in [home_team, away_team]:
             print(f"found game: {away_team} @ {home_team}")
-            print(f"    {u.pretty_print_in_timezone(game['gameDate'])}")
+            print(f"    {u.pretty_print_date_in_timezone(game['gameDate'])}")
             print(f"    game PK: {gamepk}")
             return game
         
@@ -78,12 +133,13 @@ def get_stream_from_game(game, team_name=DBACKS):
         tv = ("TV" in broadcast["type"])
         availabile = (broadcast["availability"]["availabilityText"]  in [IN_MARKET, NATIONAL, EXCLUSIVE])
         special = (broadcast["availability"]["availabilityText"]  in [NATIONAL, EXCLUSIVE])
+        free = ("true" in str(broadcast["freeGame"]).lower())
         streaming = ("true" in str(broadcast["availableForStreaming"]).lower())
         #media_on = (broadcast["mediaState"]["mediaStateText"] == MEDIA_ON)
         english = (broadcast["language"] == "en")
         our_side = (home_away in broadcast["homeAway"])
 
-        if tv and availabile and streaming  and english and (our_side or special):
+        if tv and (availabile or free) and streaming and english and (our_side or special):
             media_id = broadcast["mediaId"]
             print(f"found broadcast: {broadcast['name']}")
             print(f"    media ID: {media_id}")

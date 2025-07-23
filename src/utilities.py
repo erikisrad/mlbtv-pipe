@@ -1,7 +1,9 @@
 from datetime import datetime
 import pytz
 
-def pretty_print_in_timezone(iso_date, timezone="US/Arizona"):
+default_tz = "US/Arizona"
+
+def convert_to_timezone(iso_date, timezone=default_tz):
     #Original UTC time string
     #iso_date = "2025-07-10T17:10:00Z"
 
@@ -14,7 +16,20 @@ def pretty_print_in_timezone(iso_date, timezone="US/Arizona"):
 
     # Convert to Arizona time
     t = utc_time.astimezone(tz)
+    return t
+
+def pretty_print_datetime_in_timezone(iso_date, timezone=default_tz):
+
+    t = convert_to_timezone(iso_date, timezone)
 
     # Pretty-print it
     pretty_time = t.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+    return pretty_time
+
+def pretty_print_time_in_timezone(iso_date, timezone=default_tz):
+
+    t = convert_to_timezone(iso_date, timezone)
+    
+    # Pretty-print it
+    pretty_time = t.strftime("%I:%M %p")
     return pretty_time
