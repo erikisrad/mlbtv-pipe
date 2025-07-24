@@ -1,15 +1,14 @@
 import subprocess
+import time
 from mlbtv_account import Account
 from mlbtv_stream import Stream
 import mlb_stats
 from datetime import timedelta
 import sys
 
-mlb_stats.prompt_games()
-
+print(mlb_stats.prompt_games(days_ago=22))
 
 sys.exit()
-
 
 account = Account()
 
