@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import pytz
 
 default_tz = "US/Arizona"
@@ -23,7 +24,7 @@ def pretty_print_datetime_in_timezone(iso_date, timezone=default_tz):
     t = convert_to_timezone(iso_date, timezone)
 
     # Pretty-print it
-    pretty_time = t.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+    pretty_time = t.strftime("%A, %B %d %Y at %I:%M %p %Z")
     return pretty_time
 
 def pretty_print_time_in_timezone(iso_date, timezone=default_tz):
@@ -33,3 +34,17 @@ def pretty_print_time_in_timezone(iso_date, timezone=default_tz):
     # Pretty-print it
     pretty_time = t.strftime("%I:%M %p")
     return pretty_time
+
+def pretty_print_date_in_timezone(iso_date, timezone=default_tz):
+
+    t = convert_to_timezone(iso_date, timezone)
+    
+    # Pretty-print it
+    pretty_time = t.strftime("%A, %B %d %Y")
+    return pretty_time
+
+def clear_terminal():
+    if os.name == 'nt':  #Windows
+        os.system('cls')
+    else:  #Linux
+        os.system('clear')

@@ -1,7 +1,9 @@
+import sys
 import requests
 requests.packages.urllib3.disable_warnings()
 from datetime import datetime, timedelta
 import utilities as u
+import os
 
 SCHEDULE_URL_PREFIX = "https://statsapi.mlb.com/api/v1/schedule?"
 SCHEDULE_URL_SUFFIX = ",game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note)"
@@ -55,9 +57,8 @@ def get_games_on_date(date=None, days_ago=None):
     return games
 
 def prompt_games(games=None):
-    home_len = 0
-    away_len = 0
-    prints = []
+    home_len = away_len = match_len =  0
+    choices = []
     games = get_games_on_date() if not games else games # this line makes me laugh
     for game in games:
         
@@ -73,31 +74,53 @@ def prompt_games(games=None):
         home["team"] = game["teams"]["home"]["team"]["name"]
         home["wins"] = game["teams"]["home"]["leagueRecord"]["wins"]
         home["losses"] = game["teams"]["home"]["leagueRecord"]["losses"]
-        home_str = f"{home['team']} ({home['wins']}/{home['losses']}),"
+        home_str = f"{home['team']} ({home['wins']}/{home['losses']})"
         home_len = max(home_len, len(home_str))
-
+        
         away = {}
         away["team"] = game["teams"]["away"]["team"]["name"]
         away["wins"] = game["teams"]["away"]["leagueRecord"]["wins"]
         away["losses"] = game["teams"]["away"]["leagueRecord"]["losses"]
-        away_str = f"{away['team']} ({away['wins']}/{away['losses']})"
+        away_str = f"({away['wins']}/{away['losses']}) {away['team']}"
         away_len = max(away_len, len(away_str))
 
-        prints.append({
+        match_len = max(match_len, len(home_str) + len(away_str))
+
+        choices.append({
             "home": home_str,
             "away": away_str,
             "time": time,
-            "status": status
+            "status": status,
+            "game" : game
         })
 
-    for p in prints:
-        home = p["home"]
-        away = p["away"]
-        time = p["time"]
-        status = p["status"]
+    u.clear_terminal()
+    dash_width = (match_len + 33)
+    d = u.pretty_print_date_in_timezone(game['gameDate'])
+    # print(f"dash_width: {dash_width}")
+    # print(f"d: {len(d)}")
+    # print(f"away: {away_len}")
+    print(f"{d:^{dash_width}}")
+    print("=" * dash_width)
 
+    for i, c in enumerate(choices, start=1):
         # Print with padding
-        print(f"{away:<{away_len}} @ {home:<{home_len}} {time}, {status}")
+        print(f"{i:>2} | {c['away']:>{away_len}} at {c['home']:<{home_len}} | {c['time']} | {c['status']}")
+
+    print(f"choose a game by number (1-{len(choices)}), or 'q' to quit:")
+    while True:
+        choice = input().lower().strip()
+        if choice == 'q':
+            print("Exiting...")
+            sys.exit()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(choices):
+                return choices[choice - 1]["game"]
+            else:
+                print(f"Please choose a number between 1 and {len(choices)}.")
+        except ValueError:
+            print("Invalid input. Please enter a number or 'q' to quit.")
 
 
 
@@ -112,7 +135,7 @@ def get_team_game_from_games(games, team_name=DBACKS):
 
         if team_name in [home_team, away_team]:
             print(f"found game: {away_team} @ {home_team}")
-            print(f"    {u.pretty_print_date_in_timezone(game['gameDate'])}")
+            print(f"    {u.pretty_print_datetime_in_timezone(game['gameDate'])}")
             print(f"    game PK: {gamepk}")
             return game
         

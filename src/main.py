@@ -3,8 +3,13 @@ from mlbtv_account import Account
 from mlbtv_stream import Stream
 import mlb_stats
 from datetime import timedelta
+import sys
 
 mlb_stats.prompt_games()
+
+
+sys.exit()
+
 
 account = Account()
 
