@@ -1,0 +1,42 @@
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-03&endDate=2025-07-03&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 41134
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-03&endDate=2025-07-03&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 41134
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 14668
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 15579
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /oauth2/aus1m088yK07noBfh356/v1/interact HTTP/1.1" 200 None
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /idp/idx/introspect HTTP/1.1" 200 None
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /idp/idx/identify HTTP/1.1" 200 None
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /idp/idx/challenge HTTP/1.1" 200 None
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /idp/idx/challenge/answer HTTP/1.1" 200 None
+DEBUG:Starting new HTTPS connection (1): ids.mlb.com:443
+DEBUG:https://ids.mlb.com:443 "POST /oauth2/aus1m088yK07noBfh356/v1/token HTTP/1.1" 200 None
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 15580
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 15867
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 16491
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 16492
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 16498
+DEBUG:mlbtv-pipe started
+DEBUG:Starting new HTTPS connection (1): statsapi.mlb.com:443
+DEBUG:https://statsapi.mlb.com:443 "GET /api/v1/schedule?sportId=1&startDate=2025-07-25&endDate=2025-07-25&hydrate=broadcasts(all),game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note) HTTP/1.1" 200 16457

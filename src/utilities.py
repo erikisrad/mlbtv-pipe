@@ -24,7 +24,7 @@ def pretty_print_datetime_in_timezone(iso_date, tzone=default_tz):
     t = convert_to_timezone(iso_date, tzone)
 
     # Pretty-print it
-    pretty_time = t.strftime("%A, %B %d %Y at %I:%M %p %Z")
+    pretty_time = t.strftime("%A, %B %d %Y, %I:%M %p")
     return pretty_time
 
 def pretty_print_time_in_timezone(iso_date, tzone=default_tz):

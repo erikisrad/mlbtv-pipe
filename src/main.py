@@ -5,25 +5,38 @@ from mlbtv_stream import Stream
 import mlb_stats
 from datetime import timedelta
 import sys
+import logging
 
-print(mlb_stats.prompt_games(days_ago=22))
+APP = "mlbtv-pipe"
 
-sys.exit()
+def main():
 
-account = Account()
+    logger = logging.getLogger(__name__)
+    logging.basicConfig(filename=f'{APP}.log', 
+                        encoding='utf-8',
+                        format='%(levelname)s:%(message)s',
+                        level=logging.DEBUG)
+    logger.debug(f"{APP} started")
 
-game_info = mlb_stats.get_game_info_for_team_on_date(team_name="Arizona Diamondbacks")
+    account = Account()
+    game = mlb_stats.prompt_games()
+    stream = mlb_stats.prompt_streams(game)
 
-stream = Stream(account.get_token(), game_info["gamepk"], game_info["stream_id"])
+    sys.exit()
 
-print(f"stream playback URL: {stream.get_manifest()}")
-print("generating choices...")
-stream.gen_playlist()
-mstones = stream.get_milestones()
+    game_info = mlb_stats.get_game_info_for_team_on_date(team_name="Arizona Diamondbacks")
 
-subprocess.Popen(["C:/Program Files/VideoLAN/VLC/vlc.exe", stream.stream_url, "--extraintf=http", "--http-host=localhost", "--http-port=8080", "--http-password=mlbtv"])
+    stream = Stream(account.get_token(), game_info["gamepk"], game_info["stream_id"])
 
-print("end of file")
+    print(f"stream playback URL: {stream.get_manifest()}")
+    print("generating choices...")
+    stream.gen_playlist()
+    mstones = stream.get_milestones()
 
+    subprocess.Popen(["C:/Program Files/VideoLAN/VLC/vlc.exe", stream.stream_url, "--extraintf=http", "--http-host=localhost", "--http-port=8080", "--http-password=mlbtv"])
 
+    print("end of file")
+
+if __name__ == '__main__':
+    main()
 

@@ -65,6 +65,20 @@ def get_games_on_date(date=None, days_ago=None):
 
     return games
 
+def process_status(game):
+    """
+    Process the game status string to a more readable format.
+    """
+    status = game["status"]["detailedState"]
+    if status == IN_PROGESS:
+        inning = game["linescore"]["currentInningOrdinal"]
+        half = game["linescore"]["inningHalf"][:3]
+        status = f"{inning} {half}"
+    elif ':' in status:
+        status = status.split(':')[0]
+
+    return status
+
 def prompt_games(date=None, days_ago=0):
     
     AT = " at "
@@ -87,13 +101,7 @@ def prompt_games(date=None, days_ago=0):
     games = get_games_on_date(date=date)
     for game in games:
 
-        status = game["status"]["detailedState"]
-        if status == IN_PROGESS:
-            inning = game["linescore"]["currentInningOrdinal"]
-            half = game["linescore"]["inningHalf"][:3]
-            status = f"{inning} {half}"
-        elif ':' in status:
-            status = status.split(':')[0]
+        status = process_status(game)
         lengths["status"] = max(lengths["status"], len(status))
 
         time = u.pretty_print_time_in_timezone(game["gameDate"])
@@ -162,34 +170,92 @@ def prompt_games(date=None, days_ago=0):
                 case 'x':
                     return prompt_games(days_ago=days_ago - 1)
 
-                
+def prompt_streams(game):
+    """
+    Prompt the user to select a stream for the given game.
+    Returns a media_id
+    """
+    game_info = {
+        "gamePk": game["gamePk"],
+        "datetime": u.pretty_print_datetime_in_timezone(game["gameDate"]),
+        "status": process_status(game),
+        "venue": game["venue"]["name"],
+        "teams":{
+            "home": {
+                "name": game["teams"]["home"]["team"]["name"],
+                "abbr": game["teams"]["home"]["team"]["abbreviation"],
+                "location": game["teams"]["home"]["team"]["locationName"],
+                "record": f"{game['teams']['home']['leagueRecord']['wins']}/{game['teams']['home']['leagueRecord']['losses']}",
+                "pitcher": game["teams"]["home"]["probablePitcher"]["fullName"] if "probablePitcher" in game["teams"]["home"] else "TBD"
+            },
+            "away": {
+                "name": game["teams"]["away"]["team"]["name"],
+                "abbr": game["teams"]["away"]["team"]["abbreviation"],
+                "location": game["teams"]["away"]["team"]["locationName"],
+                "record": f"{game['teams']['away']['leagueRecord']['wins']}/{game['teams']['away']['leagueRecord']['losses']}",
+                "pitcher": game["teams"]["away"]["probablePitcher"]["fullName"] if "probablePitcher" in game["teams"]["away"] else "TBD"
+            }
+        }
+    }
 
+    NAME = "Name"
+    MEDIA_ID = "MediaID"
+    TYPE = "Type"
+    AVAILABILE = "Availability"
+    FREE = "Free"
+    STREAMING = "Streaming"
+    STATE = "State"
+    LANGUAGE = "Language"
+    TEAM = "Team"
 
+    languages = {
+        "en": "English",
+        "es": "Spanish"
+    }
 
+    broadcasts = []
+    ml = { # max lengths
+        NAME: len(NAME), #initial min lengths
+        MEDIA_ID: len(MEDIA_ID),
+        TYPE: len(TYPE),
+        AVAILABILE: len(AVAILABILE),
+        FREE: len(FREE),
+        STREAMING: len(STREAMING),
+        STATE: len(STATE),
+        LANGUAGE: len(LANGUAGE),
+        TEAM: len(TEAM)
+    }
+    for broadcast in game["broadcasts"]:
+        entry ={
+            NAME: broadcast["name"],
+            MEDIA_ID: broadcast["mediaId"],
+            TYPE: broadcast["type"],
+            AVAILABILE: broadcast["availability"]["availabilityText"],
+            FREE: broadcast["freeGame"],
+            STREAMING: broadcast["availableForStreaming"],
+            STATE: broadcast["mediaState"]["mediaStateText"],
+            LANGUAGE: languages[broadcast["language"]],
+            TEAM: game_info["teams"][broadcast["homeAway"]],
+        }
 
+        broadcasts.append(entry)
 
+        for key, value in entry.items():
+            value_length = len(str(value))
+            ml[key] = max(ml.get(key, 0), value_length)
 
+    match_str = f"{game_info['teams']['away']['name']} @ {game_info['teams']['home']['name']}"
+    dash_width = sum(ml.values()) + len(ml) * 3
 
-        # if choice in '0123456789abcdef':
-        #     decimal_value = int(choice, 16)
-        #     return(choices[int(choice)]["game"])
+    u.clear_terminal()
 
-        # elif choice == 'q':
-        #     print("Exiting...")
-        #     sys.exit()
-        # try:
-        #     choice = int(choice)
-        #     if 1 <= choice <= len(choices):
-        #         return choices[choice - 1]["game"]
-        #     else:
-        #         print(f"Please choose a number between 1 and {len(choices)}.")
-        # except ValueError:
-        #     print("Invalid input. Please enter a number or 'q' to quit.")
-
-
-
-
-
+    print(f"{match_str}")
+    print(f"{game_info['datetime']}")
+    print("-" * dash_width)
+    print(f"{NAME:<{ml[NAME]}} | {MEDIA_ID:<{ml[MEDIA_ID]}} | {TYPE:<{ml[TYPE]}} | {AVAILABILE:<{ml[AVAILABILE]}} | {FREE:<{ml[FREE]}} | {STREAMING:<{ml[STREAMING]}} | {STATE:<{ml[STATE]}} | {LANGUAGE:<{ml[LANGUAGE]}} | {TEAM:<{ml[TEAM]}}")
+    for b in broadcasts:
+        print(f"{b[NAME]:<{ml[NAME]}} | {b[MEDIA_ID]:<{ml[MEDIA_ID]}} | {b[TYPE]:<{ml[TYPE]}} | {b[AVAILABILE]:<{ml[AVAILABILE]}} | {b[FREE]:<{ml[FREE]}} | {b[STREAMING]:<{ml[STREAMING]}} | {b[STATE]:<{ml[STATE]}} | {b[LANGUAGE]:<{ml[LANGUAGE]}} | {b[TEAM]:<{ml[TEAM]}}")
+        
 
 def get_team_game_from_games(games, team_name=DBACKS):
     for game in games:
@@ -198,7 +264,7 @@ def get_team_game_from_games(games, team_name=DBACKS):
         away_team = game["teams"]["away"]["team"]["name"]
 
         if team_name in [home_team, away_team]:
-            print(f"found game: {away_team} @ {home_team}")
+            print(f"found game: {away_team} at {home_team}")
             print(f"    {u.pretty_print_datetime_in_timezone(game['gameDate'])}")
             print(f"    game PK: {gamepk}")
             return game
@@ -231,7 +297,6 @@ def get_stream_from_game(game, team_name=DBACKS):
             print(f"found broadcast: {broadcast['name']}")
             print(f"    media ID: {media_id}")
             return media_id
-
         
     raise Exception(f"No valid broadcast found for {team_name} in gamepk {game['gamePk']} between {away_team} and {home_team}")
 

@@ -6,6 +6,7 @@ from mlbtv_token import Token
 from milestones import Milestones
 import csv
 import io
+from enum import Enum
 
 BEST = "BEST"
 BANDWIDTH = "BANDWIDTH"
@@ -15,6 +16,8 @@ FRAME_RATE = "FRAME-RATE"
 STREAM_INF = "#EXT-X-STREAM-INF:"
 URI = "URI"
 GRAPHQL_URL = "https://media-gateway.mlb.com/graphql"
+
+
 
 def format_bandwidth(bps):
 
@@ -40,7 +43,7 @@ def format_bandwidth(bps):
 
 class Stream():
 
-    def __init__(self, token: Token, game_pk: str, media_id: str, quality=BEST):
+    def __init__(self, token: Token, game_pk: str, media_id: str):
         self.token = token
         self.game_pk = game_pk
         self.media_id = media_id
