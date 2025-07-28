@@ -6,6 +6,9 @@ import utilities as u
 import os
 import keyboard
 
+AT = " at "
+COL = " | "
+
 SCHEDULE_URL_PREFIX = "https://statsapi.mlb.com/api/v1/schedule?"
 SCHEDULE_URL_SUFFIX = ",game(content(media(epg)),editorial(preview,recap)),linescore,team,probablePitcher(note)"
 
@@ -80,9 +83,6 @@ def process_status(game):
     return status
 
 def prompt_games(date=None, days_ago=0):
-    
-    AT = " at "
-    COL = " | "
 
     choices = []
     lengths = {
@@ -210,52 +210,81 @@ def prompt_streams(game):
 
     languages = {
         "en": "English",
-        "es": "Spanish"
+        "es": "Spanish",
+        "fr": "French",
     }
 
     broadcasts = []
     ml = { # max lengths
         NAME: len(NAME), #initial min lengths
-        MEDIA_ID: len(MEDIA_ID),
         TYPE: len(TYPE),
         AVAILABILE: len(AVAILABILE),
         FREE: len(FREE),
         STREAMING: len(STREAMING),
         STATE: len(STATE),
         LANGUAGE: len(LANGUAGE),
-        TEAM: len(TEAM)
+        TEAM: len(TEAM)+1
     }
     for broadcast in game["broadcasts"]:
         entry ={
             NAME: broadcast["name"],
-            MEDIA_ID: broadcast["mediaId"],
             TYPE: broadcast["type"],
-            AVAILABILE: broadcast["availability"]["availabilityText"],
+            AVAILABILE: broadcast.get("availability", {}).get("availabilityText", "N/A"),
             FREE: broadcast["freeGame"],
             STREAMING: broadcast["availableForStreaming"],
             STATE: broadcast["mediaState"]["mediaStateText"],
             LANGUAGE: languages[broadcast["language"]],
-            TEAM: game_info["teams"][broadcast["homeAway"]],
+            TEAM: game_info["teams"][broadcast["homeAway"]]["abbr"],
         }
-
-        broadcasts.append(entry)
 
         for key, value in entry.items():
             value_length = len(str(value))
             ml[key] = max(ml.get(key, 0), value_length)
 
-    match_str = f"{game_info['teams']['away']['name']} @ {game_info['teams']['home']['name']}"
-    dash_width = sum(ml.values()) + len(ml) * 3
+        entry[MEDIA_ID] = broadcast["mediaId"]
+
+        broadcasts.append(entry)
+
+    match_str = f"{game_info['teams']['away']['name']} at {game_info['teams']['home']['name']}"
+    dash_width = sum(ml.values()) + (len(ml) * 3)
 
     u.clear_terminal()
-
-    print(f"{match_str}")
-    print(f"{game_info['datetime']}")
+    print(f"{match_str:^{dash_width}}")
+    print(f"{game_info['datetime']:^{dash_width}}")
     print("-" * dash_width)
-    print(f"{NAME:<{ml[NAME]}} | {MEDIA_ID:<{ml[MEDIA_ID]}} | {TYPE:<{ml[TYPE]}} | {AVAILABILE:<{ml[AVAILABILE]}} | {FREE:<{ml[FREE]}} | {STREAMING:<{ml[STREAMING]}} | {STATE:<{ml[STATE]}} | {LANGUAGE:<{ml[LANGUAGE]}} | {TEAM:<{ml[TEAM]}}")
-    for b in broadcasts:
-        print(f"{b[NAME]:<{ml[NAME]}} | {b[MEDIA_ID]:<{ml[MEDIA_ID]}} | {b[TYPE]:<{ml[TYPE]}} | {b[AVAILABILE]:<{ml[AVAILABILE]}} | {b[FREE]:<{ml[FREE]}} | {b[STREAMING]:<{ml[STREAMING]}} | {b[STATE]:<{ml[STATE]}} | {b[LANGUAGE]:<{ml[LANGUAGE]}} | {b[TEAM]:<{ml[TEAM]}}")
-        
+    print(f"{'#':^1}{COL}{NAME:>{ml[NAME]}}{COL}{TYPE:<{ml[TYPE]}}{COL}{AVAILABILE:<{ml[AVAILABILE]}}{COL}{FREE:<{ml[FREE]}}{COL}{STREAMING:<{ml[STREAMING]}}{COL}{STATE:<{ml[STATE]}}{COL}{LANGUAGE:<{ml[LANGUAGE]}}{COL}{TEAM:<{ml[TEAM]}}")
+    print("-" * dash_width)
+    for i, b in enumerate(broadcasts):
+        print(f"{u.pesudo_hex(i):>1}{COL}{b[NAME]:>{ml[NAME]}}{COL}{b[TYPE]:<{ml[TYPE]}}{COL}{b[AVAILABILE]:<{ml[AVAILABILE]}}{COL}{b[FREE]:<{ml[FREE]}}{COL}{b[STREAMING]:<{ml[STREAMING]}}{COL}{b[STATE]:<{ml[STATE]}}{COL}{b[LANGUAGE]:<{ml[LANGUAGE]}}{COL}{b[TEAM]:<{ml[TEAM]}}")
+    print("-" * dash_width)
+
+    hex_chars = ''.join(str(u.pesudo_hex(i)) for i in range(len(broadcasts)))
+
+    if not hex_chars:
+        hc = ""
+    elif len(hex_chars) == 1:
+        hc = f"select stream: {hex_chars},"
+    else:
+        hc = f"select stream: [{hex_chars[0]}-{hex_chars[-1]}],"
+
+    print(f"{hc} quit: q")
+    while True:
+        event = keyboard.read_event(suppress=True)
+        if event.event_type == keyboard.KEY_DOWN:
+            choice = event.name.lower()
+
+            if choice in hex_chars:
+                return {MEDIA_ID: broadcasts[u.pesudo_hex(choice)][MEDIA_ID],
+                        "gamepk": game_info["gamePk"]}
+                        
+            match choice:
+                case 'q':
+                    print("Exiting...")
+                    sys.exit()
+                case 'z':
+                    return prompt_games(days_ago=days_ago + 1)
+                case 'x':
+                    return prompt_games(days_ago=days_ago - 1)
 
 def get_team_game_from_games(games, team_name=DBACKS):
     for game in games:
@@ -299,20 +328,3 @@ def get_stream_from_game(game, team_name=DBACKS):
             return media_id
         
     raise Exception(f"No valid broadcast found for {team_name} in gamepk {game['gamePk']} between {away_team} and {home_team}")
-
-def get_game_info_for_team_on_date(team_name=DBACKS, date=None, days_ago=None):
-    games = get_games_on_date(date, days_ago)
-    game = get_team_game_from_games(games, team_name)
-
-    gamepk = game["gamePk"]
-    home_team = game["teams"]["home"]["team"]["name"]
-    away_team = game["teams"]["away"]["team"]["name"]
-
-    stream_id = get_stream_from_game(game, team_name)
-
-    return {
-        "gamepk": gamepk,
-        "home_team": home_team,
-        "away_team": away_team,
-        "stream_id": stream_id
-    }

@@ -18,18 +18,21 @@ def main():
                         level=logging.DEBUG)
     logger.debug(f"{APP} started")
 
+    # file_handler = next(
+    #     (h for h in logging.getLogger().handlers if isinstance(h, logging.FileHandler)),
+    #     None
+    # )
+
+    # if file_handler:
+    #     print(f"Log file location: {file_handler.baseFilename}")
+    # else:
+    #     print("No FileHandler found.")
+
     account = Account()
     game = mlb_stats.prompt_games()
-    stream = mlb_stats.prompt_streams(game)
+    stream_choice = mlb_stats.prompt_streams(game)
+    stream = Stream(account.get_token(), stream_choice["gamepk"], stream_choice["MediaID"])
 
-    sys.exit()
-
-    game_info = mlb_stats.get_game_info_for_team_on_date(team_name="Arizona Diamondbacks")
-
-    stream = Stream(account.get_token(), game_info["gamepk"], game_info["stream_id"])
-
-    print(f"stream playback URL: {stream.get_manifest()}")
-    print("generating choices...")
     stream.gen_playlist()
     mstones = stream.get_milestones()
 

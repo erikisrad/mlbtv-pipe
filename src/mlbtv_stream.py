@@ -1,22 +1,20 @@
 
 import re
+import sys
+import keyboard
 import requests
 requests.packages.urllib3.disable_warnings()
 from mlbtv_token import Token
 from milestones import Milestones
 import csv
 import io
-from enum import Enum
+from enum import Enum, auto
+import utilities as u
 
-BEST = "BEST"
-BANDWIDTH = "BANDWIDTH"
-AVG_BANDWIDTH = "AVERAGE-BANDWIDTH"
-RESOLUTION = "RESOLUTION"
-FRAME_RATE = "FRAME-RATE"
-STREAM_INF = "#EXT-X-STREAM-INF:"
-URI = "URI"
 GRAPHQL_URL = "https://media-gateway.mlb.com/graphql"
-
+STREAM_INF = "#EXT-X-STREAM-INF:"
+AT = " at "
+COL = " | "
 
 
 def format_bandwidth(bps):
@@ -288,8 +286,31 @@ class Stream():
             raise Exception(f"gen_playlist failed: {r.text}")
 
         raw_playlist = r.text.split("\n")
-
         self._playlist = []
+
+        class PK(Enum): #playlist keys
+            BANDWIDTH = auto()
+            AVG_BANDWIDTH = auto()
+            RESOLUTION = auto()
+            FRAME_RATE = auto()
+            URI = auto()
+
+        SRC = { # the key names in the raw playlist
+            PK.BANDWIDTH: "BANDWIDTH",
+            PK.AVG_BANDWIDTH: "AVERAGE-BANDWIDTH",
+            PK.RESOLUTION: "RESOLUTION",
+            PK.FRAME_RATE: "FRAME-RATE",
+            PK.URI: "URI"
+        }
+
+        DST = { # the key names as we will print them
+            PK.BANDWIDTH: "BW",
+            PK.AVG_BANDWIDTH: "Bitrate",
+            PK.RESOLUTION: "Resolution",
+            PK.FRAME_RATE: "FPS",
+            PK.URI: "URI"
+        }
+
         for i, line in enumerate(raw_playlist):
             if line.startswith(STREAM_INF):
                 raw_stream_params = line[len(STREAM_INF):]
@@ -303,24 +324,73 @@ class Stream():
                 key = key.strip()
                 value = value.strip().strip('"')
 
-                if BANDWIDTH in key:
+                if SRC[PK.BANDWIDTH] in key:
                     value = format_bandwidth(value)
 
                 param_dict[key] = value
 
-            # for param in raw_stream_params.split(","):
-            #     k, v = param.split("=")
-            #     stream_params.append((k.strip(), v.strip().strip('"')))
-
             next_line = raw_playlist[i + 1]
-            param_dict[URI] = next_line.strip()
+            param_dict[DST[PK.URI]] = next_line.strip()
             self._playlist.append(param_dict)
             
-        self.stream_url = f"{self._url_prefix}/{self._playlist[-1][URI]}"
+        if len(self._playlist) == 0:
+            raise Exception("No streams found in playlist")
+        elif len(self._playlist) == 1:
+            self.stream_url = f"{self._url_prefix}/{self._playlist[-1][SRC[PK.URI]]}"
+        else:
+            lines = []
+            ml = { # max lengths
+                PK.AVG_BANDWIDTH: len(DST[PK.AVG_BANDWIDTH]),
+                PK.RESOLUTION: len(DST[PK.RESOLUTION]),
+                PK.FRAME_RATE: len(DST[PK.FRAME_RATE]) + 1,
+            }
 
-        for choice in self._playlist:
-            print(f"Stream choice: {choice.get(RESOLUTION, 'unknown')} {choice.get(AVG_BANDWIDTH, 'unknown')} {choice.get(FRAME_RATE, 'unknown')} fps")
+            for choice in self._playlist:
+                entry ={
+                    PK.AVG_BANDWIDTH: choice.get(SRC[PK.AVG_BANDWIDTH], "N/A"),
+                    PK.RESOLUTION: choice.get(SRC[PK.RESOLUTION], "N/A"),
+                    PK.FRAME_RATE: choice.get(SRC[PK.FRAME_RATE], "N/A"),
+                }
 
+                for key, value in entry.items():
+                    value_length = len(str(value))
+                    ml[key] = max(ml.get(key, 0), value_length)
 
+                entry[PK.URI] = choice.get(SRC[PK.URI])
+                lines.append(entry)
 
+                dash_width = sum(ml.values()) + (len(ml) * 3)
 
+            u.clear_terminal()
+            dash_width = sum(ml.values()) + (len(ml) * 3) + 1
+            print("-" * dash_width)
+
+            print(f"{'#':>1}{COL}{DST[PK.AVG_BANDWIDTH]:<{ml[PK.AVG_BANDWIDTH]}}{COL}{DST[PK.RESOLUTION]:<{ml[PK.RESOLUTION]}}{COL}{DST[PK.FRAME_RATE]:<{ml[PK.FRAME_RATE]}}")
+            print("-" * dash_width)
+            for i, line in enumerate(lines):
+                print(f"{i:>1}{COL}{line[PK.AVG_BANDWIDTH]:<{ml[PK.AVG_BANDWIDTH]}}{COL}{line[PK.RESOLUTION]:<{ml[PK.RESOLUTION]}}{COL}{line[PK.FRAME_RATE]:<{ml[PK.FRAME_RATE]}}")
+
+            print("-" * dash_width)
+
+            hex_chars = ''.join(str(u.pesudo_hex(i)) for i in range(len(lines)))
+
+            if not hex_chars:
+                hc = ""
+            elif len(hex_chars) == 1:
+                hc = f"select stream: {hex_chars},"
+            else:
+                hc = f"select stream: [{hex_chars[0]}-{hex_chars[-1]}],"
+
+            print(f"{hc} quit: q")
+            while True:
+                event = keyboard.read_event(suppress=True)
+                if event.event_type == keyboard.KEY_DOWN:
+                    choice = event.name.lower()
+
+                    if choice in hex_chars:
+                        self.stream_url = f"{self._url_prefix}/{lines[u.pesudo_hex(choice)][PK.URI]}"
+                        break
+                                
+                    elif choice == "q":
+                        print("Exiting...")
+                        sys.exit()
