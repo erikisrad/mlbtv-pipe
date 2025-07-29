@@ -6,13 +6,19 @@ import mlb_stats
 from datetime import timedelta
 import sys
 import logging
+import os
 
 APP = "mlbtv-pipe"
 
 def main():
 
+    # CONFIGURE LOGGING
+    appdata_local = os.getenv("LOCALAPPDATA")
+    log_file_path = os.path.join(appdata_local, APP, f"{APP}.log")
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=f'{APP}.log', 
+    logging.basicConfig(filename=log_file_path, 
                         encoding='utf-8',
                         format='%(levelname)s:%(message)s',
                         level=logging.DEBUG)

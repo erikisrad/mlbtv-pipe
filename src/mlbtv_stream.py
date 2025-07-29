@@ -359,8 +359,6 @@ class Stream():
                 entry[PK.URI] = choice.get(SRC[PK.URI])
                 lines.append(entry)
 
-                dash_width = sum(ml.values()) + (len(ml) * 3)
-
             u.clear_terminal()
             dash_width = sum(ml.values()) + (len(ml) * 3) + 1
             print("-" * dash_width)

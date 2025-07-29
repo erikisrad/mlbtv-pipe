@@ -246,7 +246,7 @@ def prompt_streams(game):
         broadcasts.append(entry)
 
     match_str = f"{game_info['teams']['away']['name']} at {game_info['teams']['home']['name']}"
-    dash_width = sum(ml.values()) + (len(ml) * 3)
+    dash_width = sum(ml.values()) + (len(ml) * 3) + 1
 
     u.clear_terminal()
     print(f"{match_str:^{dash_width}}")
