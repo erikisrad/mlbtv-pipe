@@ -58,6 +58,27 @@ def pretty_print_timezone(tzone=default_tz):
     return f"UTC{hours_offset:+d}"
 
 def pesudo_hex(n):
+    """
+    Converts between pseudo-hexadecimal representations and their integer equivalents.
+    This function provides a mapping between integers and their corresponding pseudo-hexadecimal
+    characters, and vice versa. For integers:
+        - If the input is an integer between 0 and 9 (inclusive), it returns the integer itself.
+        - If the input is an integer between 10 and 25 (inclusive), it returns the corresponding
+          lowercase letter from 'a' to 'p' (where 10 -> 'a', 11 -> 'b', ..., 25 -> 'p').
+          - letters after p are reserved for menu navigation
+        - If the input is a string representing a digit, it is converted to an integer and processed as above.
+    For single-character strings:
+        - If the input is a single alphabetic character ('a' to 'z'), it returns the corresponding
+          integer value (where 'a' -> 10, 'b' -> 11, ..., 'z' -> 35).
+        - The input is case-insensitive.
+    Raises:
+        ValueError: If the input integer is not in the range 0-25, or if the string is not a single
+                    alphabetic character, or if the character is not between 'a' and 'z'.
+        TypeError: If the input is neither an integer nor a single-character string.
+    # This function provides a two-way conversion between integers (0-25) and pseudo-hexadecimal
+    # characters ('a'-'p'), and between single letters ('a'-'z') and their corresponding integer values (10-35).
+    """
+
 
     if isinstance(n, str) and n.isdigit():
         n = int(n)
