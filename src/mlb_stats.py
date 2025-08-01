@@ -86,20 +86,21 @@ def process_status(game):
 
     return status
 
-def prompt_games2(date=None, days_ago=0):
+def prompt_games(date=None, days_ago=0):
 
     if not date:
         date = get_date(days_ago=days_ago)
     
-    NUM = "#"
+    NUM = "#" #printed column headers
     MATCH = u.pretty_print_date(date)
     TZ = u.pretty_print_timezone()
     STATE = "State"
-    AWAY = 0
+
+    AWAY = 0 #enums
     HOME = 1
+    GAME = 2
 
     ml = { # max lengths
-        MATCH: len(MATCH),
         NUM: len(NUM), #initial min lengths
         AT: len(AT),
         TZ: len(TZ),
@@ -117,7 +118,7 @@ def prompt_games2(date=None, days_ago=0):
         aw = game["teams"]["away"]["leagueRecord"]["wins"]
         al = game["teams"]["away"]["leagueRecord"]["losses"]
 
-        entry ={
+        entry = {
             NUM: u.pesudo_hex(i),
             AWAY: f"({aw}/{al}) {an}",
             HOME: f"{hn} ({hw}/{hl})",
@@ -129,77 +130,26 @@ def prompt_games2(date=None, days_ago=0):
             value_length = len(str(value))
             ml[key] = max(ml.get(key, 0), value_length)
 
+        entry[GAME] = game
         games.append(entry)
 
-    ml[MATCH] = max(ml[MATCH], (ml[AWAY] + ml(AT) + ml[HOME]))
-    menu_width = sum(ml.values()) + (len(ml) * len(COL)) + 1
-
-
-def prompt_games(date=None, days_ago=0):
-    '''Prompt the user to select a game from a list of games on a given date.
-       Returns a game object.'''
-    
-    choices = []
-    lengths = {
-        "home": 20, #min
-        "away": 20, #min
-        "status": 6, #min
-        "time": 8, #static
-        "number": 1, #static
-        "at": len(AT), #static 
-        "columns": len(COL) * 3 #static
-    }
-
-    if not date:
-        date = get_date(days_ago=days_ago)
-    
-    games = get_games_on_date(date=date)
-    for game in games:
-
-        status = process_status(game)
-        lengths["status"] = max(lengths["status"], len(status))
-
-        time = u.pretty_print_time_in_timezone(game["gameDate"])
-
-        home = {}
-        home["team"] = game["teams"]["home"]["team"]["name"]
-        home["wins"] = game["teams"]["home"]["leagueRecord"]["wins"]
-        home["losses"] = game["teams"]["home"]["leagueRecord"]["losses"]
-        home_str = f"{home['team']} ({home['wins']}/{home['losses']})"
-        lengths["home"] = max(lengths["home"], len(home_str))
-        
-        away = {}
-        away["team"] = game["teams"]["away"]["team"]["name"]
-        away["wins"] = game["teams"]["away"]["leagueRecord"]["wins"]
-        away["losses"] = game["teams"]["away"]["leagueRecord"]["losses"]
-        away_str = f"({away['wins']}/{away['losses']}) {away['team']}"
-        lengths["away"] = max(lengths["away"], len(away_str))       
-
-        choices.append({
-            "home": home_str,
-            "away": away_str,
-            "time": time,
-            "status": status,
-            "game" : game
-        })
+    menu_width = sum(ml.values()) + ((len(ml)-3) * len(COL))
+    hex_chars = ""
+    ml[MATCH] = max(len(MATCH), (ml[AWAY] + ml[AT] + ml[HOME]))
 
     u.clear_terminal()
-    dash_width = sum(list(lengths.values()))
-    match_width = lengths["home"] + lengths["at"] + lengths["away"]
-    d = u.pretty_print_date(date)
-    print("-" * dash_width)
-    print(f"{'#':>{lengths['number']}}{COL}{d:^{match_width}}{COL}{u.pretty_print_timezone():^{lengths['time']}}{COL}{'State':<{lengths['status']}}")
-    print("-" * dash_width)
+    print("-" * menu_width)
+    print(f"{NUM:>{ml[NUM]}}{COL}{MATCH:^{ml[MATCH]}}{COL}{TZ:<{ml[TZ]}}{COL}{STATE:<{ml[STATE]}}")
+    print("-" * menu_width)
 
-    if not choices:
-        print(f"{'':>{lengths['number'] + len(COL)}}{'No games':^{match_width}}")
-    for i, c in enumerate(choices):
-        print(f"{u.pesudo_hex(i):>{lengths['number']}}{COL}{c['away']:>{lengths['away']}}{AT}{c['home']:<{lengths['home']}}{COL}{c['time']}{COL}{c['status']}")
+    if not games:
+        print(f"{'':>{ml[NUM] + len(COL)}}{'No games':^{menu_width}}")
+    for g in games:
+        print(f"{g[NUM]:>{ml[NUM]}}{COL}{f'{g[AWAY]}{AT}{g[HOME]}':^{ml[MATCH]}}{COL}{g[TZ]:<{ml[TZ]}}{COL}{g[STATE]}")
+        hex_chars += str(g[NUM])
 
-    print("-" * dash_width)
+    print("-" * menu_width)
     
-    hex_chars = ''.join(str(u.pesudo_hex(i)) for i in range(len(choices)))
-
     if not hex_chars:
         hc = ""
     elif len(hex_chars) == 1:
@@ -214,16 +164,17 @@ def prompt_games(date=None, days_ago=0):
             choice = event.name.lower()
 
             if choice in hex_chars:
-                return choices[u.pesudo_hex(choice)]["game"]
+                return games[u.pesudo_hex(choice)][GAME]
             
             match choice:
                 case 'q':
                     print("Exiting...")
                     sys.exit()
-                case 'z':
+                case 'z': #recursive
                     return prompt_games(days_ago=days_ago + 1)
                 case 'x':
                     return prompt_games(days_ago=days_ago - 1)
+
 
 def prompt_streams(game):
     """
@@ -253,6 +204,7 @@ def prompt_streams(game):
         }
     }
 
+    NUM = "#" #printed column headers
     NAME = "Name"
     MEDIA_ID = "MediaID"
     TYPE = "Type"
@@ -266,11 +218,12 @@ def prompt_streams(game):
     languages = {
         "en": "English",
         "es": "Spanish",
-        "fr": "French",
+        "fr": "French"
     }
 
     broadcasts = []
     ml = { # max lengths
+        NUM: len(NUM),
         NAME: len(NAME), #initial min lengths
         TYPE: len(TYPE),
         AVAILABILE: len(AVAILABILE),
@@ -278,18 +231,20 @@ def prompt_streams(game):
         STREAMING: len(STREAMING),
         STATE: len(STATE),
         LANGUAGE: len(LANGUAGE),
-        TEAM: len(TEAM)+1
+        TEAM: len(TEAM)
     }
-    for broadcast in game["broadcasts"]:
+
+    for i, broadcast in enumerate(sorted(game["broadcasts"], key=lambda b: b["type"], reverse=True)):
         entry ={
+            NUM: u.pesudo_hex(i),
             NAME: broadcast["name"],
             TYPE: broadcast["type"],
             AVAILABILE: broadcast.get("availability", {}).get("availabilityText", "N/A"),
-            FREE: broadcast["freeGame"],
-            STREAMING: broadcast["availableForStreaming"],
+            FREE: str(broadcast["freeGame"]),
+            STREAMING: str(broadcast["availableForStreaming"]),
             STATE: broadcast["mediaState"]["mediaStateText"],
-            LANGUAGE: languages[broadcast["language"]],
-            TEAM: game_info["teams"][broadcast["homeAway"]]["abbr"],
+            LANGUAGE: languages.get(broadcast["language"], broadcast["language"]),
+            TEAM: game_info["teams"][broadcast["homeAway"]]["abbr"]
         }
 
         for key, value in entry.items():
@@ -300,21 +255,24 @@ def prompt_streams(game):
 
         broadcasts.append(entry)
 
-    match_str = f"{game_info['teams']['away']['name']} at {game_info['teams']['home']['name']}"
-    dash_width = sum(ml.values()) + (len(ml) * 3) + 1
+    menu_width = sum(ml.values()) + ((len(ml)-1) * len(COL))
+    hex_chars = ""
 
     # PRINT MENU
     u.clear_terminal()
-    print(f"{match_str:^{dash_width}}")
-    print(f"{game_info['datetime']:^{dash_width}}")
-    print("-" * dash_width)
-    print(f"{'#':^1}{COL}{NAME:>{ml[NAME]}}{COL}{TYPE:<{ml[TYPE]}}{COL}{AVAILABILE:<{ml[AVAILABILE]}}{COL}{FREE:<{ml[FREE]}}{COL}{STREAMING:<{ml[STREAMING]}}{COL}{STATE:<{ml[STATE]}}{COL}{LANGUAGE:<{ml[LANGUAGE]}}{COL}{TEAM:<{ml[TEAM]}}")
-    print("-" * dash_width)
-    for i, b in enumerate(broadcasts):
-        print(f"{u.pesudo_hex(i):>1}{COL}{b[NAME]:>{ml[NAME]}}{COL}{b[TYPE]:<{ml[TYPE]}}{COL}{b[AVAILABILE]:<{ml[AVAILABILE]}}{COL}{b[FREE]:<{ml[FREE]}}{COL}{b[STREAMING]:<{ml[STREAMING]}}{COL}{b[STATE]:<{ml[STATE]}}{COL}{b[LANGUAGE]:<{ml[LANGUAGE]}}{COL}{b[TEAM]:<{ml[TEAM]}}")
-    print("-" * dash_width)
+    print(f"{game_info['teams']['away']['name']}{AT}{game_info['teams']['home']['name']}".center(menu_width))
+    print(f"{game_info['datetime'].center(menu_width)}")
+    print("-" * menu_width)
+    print(f"{NUM:^{ml[NUM]}}{COL}{NAME:^{ml[NAME]}}{COL}{TYPE:^{ml[TYPE]}}{COL}{AVAILABILE:^{ml[AVAILABILE]}}{COL}{FREE:^{ml[FREE]}}{COL}{STREAMING:^{ml[STREAMING]}}{COL}{STATE:^{ml[STATE]}}{COL}{LANGUAGE:^{ml[LANGUAGE]}}{COL}{TEAM:^{ml[TEAM]}}")
+    print("-" * menu_width)
+    
+    if not broadcasts:
+        print(f"{'No broadcasts':^{menu_width}}")
+    for b in broadcasts:
+        print(f"{b[NUM]:>{ml[NUM]}}{COL}{b[NAME]:>{ml[NAME]}}{COL}{b[TYPE]:<{ml[TYPE]}}{COL}{b[AVAILABILE]:<{ml[AVAILABILE]}}{COL}{b[FREE]:<{ml[FREE]}}{COL}{b[STREAMING]:<{ml[STREAMING]}}{COL}{b[STATE]:<{ml[STATE]}}{COL}{b[LANGUAGE]:<{ml[LANGUAGE]}}{COL}{b[TEAM]:<{ml[TEAM]}}")
+        hex_chars += str(b[NUM])
 
-    hex_chars = ''.join(str(u.pesudo_hex(i)) for i in range(len(broadcasts)))
+    print("-" * menu_width)
 
     if not hex_chars:
         hc = ""
@@ -331,16 +289,12 @@ def prompt_streams(game):
 
             if choice in hex_chars:
                 return {MEDIA_ID: broadcasts[u.pesudo_hex(choice)][MEDIA_ID],
-                        "gamepk": game_info["gamePk"]}
+                        "GamePK": game_info["gamePk"]}
                         
             match choice:
                 case 'q':
                     print("Exiting...")
                     sys.exit()
-                case 'z':
-                    return prompt_games(days_ago=days_ago + 1)
-                case 'x':
-                    return prompt_games(days_ago=days_ago - 1)
 
 def get_team_game_from_games(games, team_name):
     for game in games:
@@ -349,9 +303,9 @@ def get_team_game_from_games(games, team_name):
         away_team = game["teams"]["away"]["team"]["name"]
 
         if team_name in [home_team, away_team]:
-            print(f"found game: {away_team} at {home_team}")
-            print(f"    {u.pretty_print_datetime_in_timezone(game['gameDate'])}")
-            print(f"    game PK: {gamepk}")
+            logger.info(f"found game: {away_team} at {home_team}")
+            logger.info(f"    {u.pretty_print_datetime_in_timezone(game['gameDate'])}")
+            logger.info(f"    game PK: {gamepk}")
             return game
         
     raise Exception(f"No game found for {team_name} on {games['dates'][0]['date']}")
@@ -379,8 +333,8 @@ def get_stream_from_game(game, team_name):
 
         if tv and (availabile or free) and streaming and english and (our_side or special):
             media_id = broadcast["mediaId"]
-            print(f"found broadcast: {broadcast['name']}")
-            print(f"    media ID: {media_id}")
+            logger.info(f"found broadcast: {broadcast['name']}")
+            logger.info(f"    media ID: {media_id}")
             return media_id
         
     raise Exception(f"No valid broadcast found for {team_name} in gamepk {game['gamePk']} between {away_team} and {home_team}")

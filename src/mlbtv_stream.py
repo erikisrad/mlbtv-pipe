@@ -1,4 +1,6 @@
 
+from datetime import datetime
+import logging
 import re
 import sys
 import keyboard
@@ -13,9 +15,12 @@ import utilities as u
 
 GRAPHQL_URL = "https://media-gateway.mlb.com/graphql"
 STREAM_INF = "#EXT-X-STREAM-INF:"
+URI = "URI"
+BW = "BANDWIDTH"
 AT = " at "
 COL = " | "
 
+logger = logging.getLogger(__name__)
 
 def format_bandwidth(bps):
 
@@ -46,25 +51,35 @@ class Stream():
         self.game_pk = game_pk
         self.media_id = media_id
         self.url = "https://www.mlb.com/tv/g%s/v%s" % (self.game_pk, self.media_id)
-        self.device_id = ""
 
-        self.session_id = None
-        self._manifest = None
-        self._url_prefix = None
+        self._device_id = ""
+        self._session_id = None
+        self._master_playlist = None
+        self._playlist_prefix = None
         self._playback_session_id = None
-        self._playlist = None
+        self._media_playlists = None
         self._milestones = None
-        self.stream_url = None
+        self._commercial_breaks = None
 
-    def get_manifest(self):
-        if not self._manifest:
-            self._gen_manifest()
-        return self._manifest
+    def get_master_playlist(self):
+        if not self._master_playlist:
+            self._gen_master_playlist()
+        return self._master_playlist
+    
+    def get_media_playlists(self):
+        if not self._media_playlists:
+            self._gen_media_playlists()
+        return self._media_playlists
     
     def get_milestones(self):
         if not self._milestones:
             self._gen_milestones()
         return self._milestones
+    
+    def get_commercial_breaks(self):
+        if not self._commercial_breaks:
+            self._gen_commercial_breaks()
+        return self._commercial_breaks
 
     def _gen_session(self):
         #begin INIT_SESSION
@@ -94,7 +109,7 @@ class Stream():
                 "device": {
                     "appVersion": "8.1.0",
                     "deviceFamily": "desktop",
-                    "knownDeviceId": self.device_id,
+                    "knownDeviceId": self._device_id,
                     "languagePreference": "ENGLISH",
                     "manufacturer": "Google Inc.",
                     "model": "",
@@ -126,13 +141,13 @@ class Stream():
         if not r.ok:
             raise Exception(f"INIT_SESSION failed: {r.text}")
 
-        self.device_id = r.json()["data"]["initSession"]["deviceId"]
-        self.session_id = r.json()["data"]["initSession"]["sessionId"]
+        self._device_id = r.json()["data"]["initSession"]["deviceId"]
+        self._session_id = r.json()["data"]["initSession"]["sessionId"]
 
-    def _gen_manifest(self):
+    def _gen_master_playlist(self):
         #begin INIT_PLAYBACK_SESSION
 
-        if not self.session_id:
+        if not self._session_id:
             self._gen_session()
 
         payload = {
@@ -182,11 +197,11 @@ class Stream():
             }''',
             "variables":{
                 "adCapabilities":["GOOGLE_STANDALONE_AD_PODS"],
-                "deviceId":"%s" % self.device_id,
+                "deviceId":"%s" % self._device_id,
                 "mediaId":"%s" % self.media_id,
                 "playbackCapabilities":{},
                 "quality":"PLACEHOLDER",
-                "sessionId":"%s" % self.session_id}
+                "sessionId":"%s" % self._session_id}
             }
 
         headers = {"Accept": "application/json, text/plain, */*",
@@ -211,8 +226,8 @@ class Stream():
         if not r.ok:
             raise Exception(f"INIT_PLAYBACK_SESSION failed: {r.text}")
 
-        self._manifest = r.json()["data"]["initPlaybackSession"]["playback"]["url"]
-        self._url_prefix = self._manifest[:self._manifest.rfind("/")]
+        self._master_playlist = r.json()["data"]["initPlaybackSession"]["playback"]["url"]
+        self._playlist_prefix = self._master_playlist[:self._master_playlist.rfind("/")] + "/"
         self._playback_session_id = r.json()["data"]["initPlaybackSession"]["playbackSessionId"]
 
     def _gen_milestones(self):
@@ -261,10 +276,10 @@ class Stream():
         
         self._milestones = Milestones(r.json()["data"]["mediaInfo"][0]["milestones"])
 
-    def gen_playlist(self):
+    def _gen_media_playlists(self):
 
-        if not self._manifest or self._url_prefix:
-            self._gen_manifest()
+        if not self._master_playlist or self._playlist_prefix:
+            self._gen_master_playlist()
 
         headers = {
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -280,36 +295,13 @@ class Stream():
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
                 }
 
-        r = requests.get(self._manifest, headers=headers)
+        r = requests.get(self._master_playlist, headers=headers)
 
         if not r.ok:
             raise Exception(f"gen_playlist failed: {r.text}")
 
         raw_playlist = r.text.split("\n")
-        self._playlist = []
-
-        class PK(Enum): #playlist keys
-            BANDWIDTH = auto()
-            AVG_BANDWIDTH = auto()
-            RESOLUTION = auto()
-            FRAME_RATE = auto()
-            URI = auto()
-
-        SRC = { # the key names in the raw playlist
-            PK.BANDWIDTH: "BANDWIDTH",
-            PK.AVG_BANDWIDTH: "AVERAGE-BANDWIDTH",
-            PK.RESOLUTION: "RESOLUTION",
-            PK.FRAME_RATE: "FRAME-RATE",
-            PK.URI: "URI"
-        }
-
-        DST = { # the key names as we will print them
-            PK.BANDWIDTH: "BW",
-            PK.AVG_BANDWIDTH: "Bitrate",
-            PK.RESOLUTION: "Resolution",
-            PK.FRAME_RATE: "FPS",
-            PK.URI: "URI"
-        }
+        self._media_playlists = []
 
         for i, line in enumerate(raw_playlist):
             if line.startswith(STREAM_INF):
@@ -324,71 +316,80 @@ class Stream():
                 key = key.strip()
                 value = value.strip().strip('"')
 
-                if SRC[PK.BANDWIDTH] in key:
-                    value = format_bandwidth(value)
+                # if BW in key:
+                #     value = format_bandwidth(value)
 
                 param_dict[key] = value
 
             next_line = raw_playlist[i + 1]
-            param_dict[DST[PK.URI]] = next_line.strip()
-            self._playlist.append(param_dict)
+            param_dict[URI] = next_line.strip()
+            self._media_playlists.append(param_dict)
+
+        self._media_playlists.sort(key=lambda x: int(x.get("AVERAGE-BANDWIDTH", x.get(BW, 0))))
             
-        if len(self._playlist) == 0:
+        if len(self._media_playlists) == 0:
             raise Exception("No streams found in playlist")
-        elif len(self._playlist) == 1:
-            self.stream_url = f"{self._url_prefix}/{self._playlist[-1][SRC[PK.URI]]}"
-        else:
-            lines = []
-            ml = { # max lengths
-                PK.AVG_BANDWIDTH: len(DST[PK.AVG_BANDWIDTH]),
-                PK.RESOLUTION: len(DST[PK.RESOLUTION]),
-                PK.FRAME_RATE: len(DST[PK.FRAME_RATE]) + 1,
-            }
 
-            for choice in self._playlist:
-                entry ={
-                    PK.AVG_BANDWIDTH: choice.get(SRC[PK.AVG_BANDWIDTH], "N/A"),
-                    PK.RESOLUTION: choice.get(SRC[PK.RESOLUTION], "N/A"),
-                    PK.FRAME_RATE: choice.get(SRC[PK.FRAME_RATE], "N/A"),
-                }
+    def fetch_media_playlist(self, number=0):
 
-                for key, value in entry.items():
-                    value_length = len(str(value))
-                    ml[key] = max(ml.get(key, 0), value_length)
+        if not self._media_playlists:
+            self._gen_media_playlists()
 
-                entry[PK.URI] = choice.get(SRC[PK.URI])
-                lines.append(entry)
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Priority": "u=0, i",
+            "Sec-Ch-Ua": '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+        }
 
-            u.clear_terminal()
-            dash_width = sum(ml.values()) + (len(ml) * 3) + 1
-            print("-" * dash_width)
+        r = requests.get(self._playlist_prefix + self._media_playlists[number][URI], headers=headers)
 
-            print(f"{'#':>1}{COL}{DST[PK.AVG_BANDWIDTH]:<{ml[PK.AVG_BANDWIDTH]}}{COL}{DST[PK.RESOLUTION]:<{ml[PK.RESOLUTION]}}{COL}{DST[PK.FRAME_RATE]:<{ml[PK.FRAME_RATE]}}")
-            print("-" * dash_width)
-            for i, line in enumerate(lines):
-                print(f"{i:>1}{COL}{line[PK.AVG_BANDWIDTH]:<{ml[PK.AVG_BANDWIDTH]}}{COL}{line[PK.RESOLUTION]:<{ml[PK.RESOLUTION]}}{COL}{line[PK.FRAME_RATE]:<{ml[PK.FRAME_RATE]}}")
+        if not r.ok:
+            raise Exception(f"fetch_media_playlist failed: {r.text}")
+        
+        return(r.text.split('\n'))
+        
+    def _gen_commercial_breaks(self):
 
-            print("-" * dash_width)
+        DATE_TIME = "#EXT-X-PROGRAM-DATE-TIME:"
+        INF = "#EXTINF:"
+        CUE_OUT = "#EXT-X-CUE-OUT:"
+        CUE_IN = "#EXT-X-CUE-IN"
+        IN_COMMERCIAL = False
+        self._commercial_breaks = []
 
-            hex_chars = ''.join(str(u.pesudo_hex(i)) for i in range(len(lines)))
+        def parse_time(time_str):
+            return datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S.%fZ")        
 
-            if not hex_chars:
-                hc = ""
-            elif len(hex_chars) == 1:
-                hc = f"select stream: {hex_chars},"
-            else:
-                hc = f"select stream: [{hex_chars[0]}-{hex_chars[-1]}],"
+        media = self.fetch_media_playlist()
+        start = None
+        current = 0
 
-            print(f"{hc} quit: q")
-            while True:
-                event = keyboard.read_event(suppress=True)
-                if event.event_type == keyboard.KEY_DOWN:
-                    choice = event.name.lower()
+        for i, line in enumerate(media):
+            if line.startswith(DATE_TIME):
+                if not start:
+                    start = parse_time(line[len(DATE_TIME):])       
+            
+                current = (parse_time(line[len(DATE_TIME):]) - start).total_seconds() * 1000
 
-                    if choice in hex_chars:
-                        self.stream_url = f"{self._url_prefix}/{lines[u.pesudo_hex(choice)][PK.URI]}"
-                        break
-                                
-                    elif choice == "q":
-                        print("Exiting...")
-                        sys.exit()
+            elif line.startswith(INF):
+                duration_f = float(line[len(INF):].split(",")[0])
+                duration = round(duration_f * 1000)
+                current += duration
+
+            elif line.startswith(CUE_OUT):
+                IN_COMMERCIAL = True
+                self._commercial_breaks.append([current])
+
+            elif line.startswith(CUE_IN):
+                IN_COMMERCIAL = False
+                self._commercial_breaks[-1].append(current)
+
+

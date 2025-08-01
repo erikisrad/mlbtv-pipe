@@ -7,6 +7,7 @@ from datetime import timedelta
 import sys
 import logging
 import os
+from vlc_driver import VLC_Handler
 
 APP = "mlbtv-pipe"
 
@@ -37,14 +38,14 @@ def main():
     account = Account()
     game = mlb_stats.prompt_games()
     stream_choice = mlb_stats.prompt_streams(game)
-    stream = Stream(account.get_token(), stream_choice["gamepk"], stream_choice["MediaID"])
+    stream = Stream(account.get_token(), stream_choice["GamePK"], stream_choice["MediaID"])
 
-    stream.gen_playlist()
-    mstones = stream.get_milestones()
+    media = stream._gen_commercial_breaks()
 
-    subprocess.Popen(["C:/Program Files/VideoLAN/VLC/vlc.exe", stream.stream_url, "--extraintf=http", "--http-host=localhost", "--http-port=8080", "--http-password=mlbtv"])
+    vh = VLC_Handler(stream)
+    vh.start()
 
-    print("end of file")
+    logger.info("end of file")
 
 if __name__ == '__main__':
     main()
