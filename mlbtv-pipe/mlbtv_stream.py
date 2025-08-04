@@ -6,12 +6,12 @@ import sys
 import keyboard
 import requests
 requests.packages.urllib3.disable_warnings()
-from mlbtv_token import Token
-from milestones import Milestones
+from .mlbtv_token import Token
+from .milestones import Milestones
 import csv
 import io
 from enum import Enum, auto
-import utilities as u
+from . import utilities as u
 
 GRAPHQL_URL = "https://media-gateway.mlb.com/graphql"
 STREAM_INF = "#EXT-X-STREAM-INF:"
@@ -386,10 +386,10 @@ class Stream():
 
             elif line.startswith(CUE_OUT):
                 IN_COMMERCIAL = True
-                self._commercial_breaks.append([current])
+                self._commercial_breaks.append([current, 0])
 
             elif line.startswith(CUE_IN):
                 IN_COMMERCIAL = False
-                self._commercial_breaks[-1].append(current)
+                self._commercial_breaks[-1][1] = current
 
 

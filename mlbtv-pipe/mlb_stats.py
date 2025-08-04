@@ -3,7 +3,7 @@ import sys
 import requests
 requests.packages.urllib3.disable_warnings()
 from datetime import datetime, timedelta
-import utilities as u
+from . import utilities as u
 import os
 import keyboard
 
@@ -145,7 +145,7 @@ def prompt_games(date=None, days_ago=0):
     if not games:
         print(f"{'':>{ml[NUM] + len(COL)}}{'No games':^{menu_width}}")
     for g in games:
-        print(f"{g[NUM]:>{ml[NUM]}}{COL}{f'{g[AWAY]}{AT}{g[HOME]}':^{ml[MATCH]}}{COL}{g[TZ]:<{ml[TZ]}}{COL}{g[STATE]}")
+        print(f"{g[NUM]:>{ml[NUM]}}{COL}{g[AWAY]:>{ml[AWAY]}}{AT:^{ml[AT]}}{g[HOME]:<{ml[HOME]}}{COL}{g[TZ]:<{ml[TZ]}}{COL}{g[STATE]}")
         hex_chars += str(g[NUM])
 
     print("-" * menu_width)
@@ -205,13 +205,12 @@ def prompt_streams(game):
     }
 
     NUM = "#" #printed column headers
-    NAME = "Name"
+    NAME = "Stream"
     MEDIA_ID = "MediaID"
     TYPE = "Type"
     AVAILABILE = "Availability"
     FREE = "Free"
-    STREAMING = "Streaming"
-    STATE = "State"
+    STATE = "Media"
     LANGUAGE = "Language"
     TEAM = "Team"
 
@@ -228,24 +227,35 @@ def prompt_streams(game):
         TYPE: len(TYPE),
         AVAILABILE: len(AVAILABILE),
         FREE: len(FREE),
-        STREAMING: len(STREAMING),
         STATE: len(STATE),
         LANGUAGE: len(LANGUAGE),
         TEAM: len(TEAM)
     }
 
-    for i, broadcast in enumerate(sorted(game["broadcasts"], key=lambda b: b["type"], reverse=True)):
+    i = 0
+    for broadcast in sorted(game["broadcasts"], key=lambda b: b["type"], reverse=True):
+
+        if not broadcast["availableForStreaming"]:
+            continue
+
         entry ={
             NUM: u.pesudo_hex(i),
-            NAME: broadcast["name"],
+            NAME: broadcast["name"].strip(),
             TYPE: broadcast["type"],
             AVAILABILE: broadcast.get("availability", {}).get("availabilityText", "N/A"),
             FREE: str(broadcast["freeGame"]),
-            STREAMING: str(broadcast["availableForStreaming"]),
             STATE: broadcast["mediaState"]["mediaStateText"],
             LANGUAGE: languages.get(broadcast["language"], broadcast["language"]),
             TEAM: game_info["teams"][broadcast["homeAway"]]["abbr"]
         }
+
+        if "Media " in entry[STATE]:
+            entry[STATE] = entry[STATE].replace("Media ", "").strip()
+            
+        if "Local (" in entry[AVAILABILE]:
+            entry[AVAILABILE] = entry[AVAILABILE][:-1].replace("Local (", "").strip()
+
+        entry[NAME] = entry[NAME].split(" Presented by")[0].strip()
 
         for key, value in entry.items():
             value_length = len(str(value))
@@ -254,6 +264,7 @@ def prompt_streams(game):
         entry[MEDIA_ID] = broadcast["mediaId"]
 
         broadcasts.append(entry)
+        i += 1
 
     menu_width = sum(ml.values()) + ((len(ml)-1) * len(COL))
     hex_chars = ""
@@ -263,13 +274,13 @@ def prompt_streams(game):
     print(f"{game_info['teams']['away']['name']}{AT}{game_info['teams']['home']['name']}".center(menu_width))
     print(f"{game_info['datetime'].center(menu_width)}")
     print("-" * menu_width)
-    print(f"{NUM:^{ml[NUM]}}{COL}{NAME:^{ml[NAME]}}{COL}{TYPE:^{ml[TYPE]}}{COL}{AVAILABILE:^{ml[AVAILABILE]}}{COL}{FREE:^{ml[FREE]}}{COL}{STREAMING:^{ml[STREAMING]}}{COL}{STATE:^{ml[STATE]}}{COL}{LANGUAGE:^{ml[LANGUAGE]}}{COL}{TEAM:^{ml[TEAM]}}")
+    print(f"{NUM:^{ml[NUM]}}{COL}{NAME:^{ml[NAME]}}{COL}{TYPE:^{ml[TYPE]}}{COL}{AVAILABILE:^{ml[AVAILABILE]}}{COL}{FREE:^{ml[FREE]}}{COL}{STATE:^{ml[STATE]}}{COL}{LANGUAGE:^{ml[LANGUAGE]}}{COL}{TEAM:^{ml[TEAM]}}")
     print("-" * menu_width)
     
     if not broadcasts:
         print(f"{'No broadcasts':^{menu_width}}")
     for b in broadcasts:
-        print(f"{b[NUM]:>{ml[NUM]}}{COL}{b[NAME]:>{ml[NAME]}}{COL}{b[TYPE]:<{ml[TYPE]}}{COL}{b[AVAILABILE]:<{ml[AVAILABILE]}}{COL}{b[FREE]:<{ml[FREE]}}{COL}{b[STREAMING]:<{ml[STREAMING]}}{COL}{b[STATE]:<{ml[STATE]}}{COL}{b[LANGUAGE]:<{ml[LANGUAGE]}}{COL}{b[TEAM]:<{ml[TEAM]}}")
+        print(f"{b[NUM]:>{ml[NUM]}}{COL}{b[NAME]:>{ml[NAME]}}{COL}{b[TYPE]:<{ml[TYPE]}}{COL}{b[AVAILABILE]:<{ml[AVAILABILE]}}{COL}{b[FREE]:<{ml[FREE]}}{COL}{b[STATE]:<{ml[STATE]}}{COL}{b[LANGUAGE]:<{ml[LANGUAGE]}}{COL}{b[TEAM]:<{ml[TEAM]}}")
         hex_chars += str(b[NUM])
 
     print("-" * menu_width)

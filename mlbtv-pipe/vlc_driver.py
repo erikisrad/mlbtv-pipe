@@ -20,10 +20,11 @@ class VLC_Handler():
 
     def start(self):
         self.handle = subprocess.Popen([VLC_LOCATION, self.stream.get_master_playlist()] + self.args)
+        time.sleep(10)  # Wait for VLC to start and be ready to accept commands
         self.monitor()
 
     def monitor(self):
-        skip = False
+        skip = True
         if skip:
             commercials = self.stream.get_commercial_breaks()
             while self.handle.poll() is None:

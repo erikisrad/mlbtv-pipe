@@ -7,7 +7,7 @@ import string
 import base64
 import hashlib
 
-from mlbtv_token import Token
+from .mlbtv_token import Token
 
 INTERACT_URL = "https://ids.mlb.com/oauth2/aus1m088yK07noBfh356/v1/interact"
 INTROSPECT_URL = "https://ids.mlb.com/idp/idx/introspect"
